@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// تمكين الأوفلاين في فايربيس (اختياري، لكن المتصفح يعتمد على LocalStorage في الكود تبعنا)
+// تمكين الأوفلاين في فايربيس
 try {
     enableIndexedDbPersistence(db).catch((err) => {
         if (err.code == 'failed-precondition') {
@@ -29,11 +29,10 @@ try {
 
 
 // === المتغيرات العامة ===
-let workers = JSON.parse(localStorage.getItem('workersApp_Mod_v3')) || [];
+let workers = JSON.parse(localStorage.getItem('workersApp_Mod_v4')) || [];
 let notes = JSON.parse(localStorage.getItem('notesApp_v1')) || [];
 let secretVault = JSON.parse(localStorage.getItem('secretVault_v1')) || { total: 0, logs: [] };
 
-let tempAttendanceList = [];
 let currentLoanWorkerIndex = null;
 let currentDetailWorkerIndex = null;
 let deferredPrompt; // لحفظ حدث التثبيت
@@ -42,12 +41,17 @@ const loanModal = new bootstrap.Modal(document.getElementById('loanModal'));
 const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
 
 // === دالة المزامنة مع Firebase ===
-async function syncToFirebase() {
+window.manualSync = async function() {
+    const msgEl = document.getElementById('syncStatusMsg');
     if (!navigator.onLine) {
+        msgEl.innerText = "لا يوجد اتصال بالإنترنت للقيام بالمزامنة 📡";
+        msgEl.className = "mt-4 fs-5 fw-bold text-danger";
         updateConnectionStatus("وضع غير متصل 📡", "secondary");
         return;
     }
 
+    msgEl.innerText = "جاري المزامنة ونقل البيانات إلى قاعدة البيانات... ⏳";
+    msgEl.className = "mt-4 fs-5 fw-bold text-warning";
     updateConnectionStatus("جاري المزامنة... ⏳", "warning");
 
     try {
@@ -57,9 +61,13 @@ async function syncToFirebase() {
             secretVault: secretVault,
             lastUpdated: new Date().toISOString()
         });
+        msgEl.innerText = "تم نقل البيانات بنجاح ✅";
+        msgEl.className = "mt-4 fs-5 fw-bold text-success";
         updateConnectionStatus("متصل وتم الحفظ ✅", "success");
     } catch (error) {
         console.error("Error saving to cloud:", error);
+        msgEl.innerText = "حدث خطأ أثناء المزامنة ❌";
+        msgEl.className = "mt-4 fs-5 fw-bold text-danger";
         updateConnectionStatus("خطأ في المزامنة ❌", "danger");
     }
 }
@@ -73,18 +81,16 @@ async function loadFromFirebase() {
 
         if (docSnap.exists()) {
             const data = docSnap.data();
-            // تحديث البيانات المحلية بالبيانات السحابية
             workers = data.workers || [];
             notes = data.notes || [];
             secretVault = data.secretVault || { total: 0, logs: [] };
             
-            // تحديث الذاكرة المحلية والواجهة
-            localStorage.setItem('workersApp_Mod_v3', JSON.stringify(workers));
+            localStorage.setItem('workersApp_Mod_v4', JSON.stringify(workers));
             localStorage.setItem('notesApp_v1', JSON.stringify(notes));
             localStorage.setItem('secretVault_v1', JSON.stringify(secretVault));
             
-            refreshUI(); // دالة تحديث الواجهة
-            updateConnectionStatus("تم استرجاع البيانات ✅", "success");
+            refreshUI();
+            updateConnectionStatus("تم استرجاع البيانات السحابية ✅", "success");
         }
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -109,7 +115,6 @@ function refreshUI() {
 
 // === عند التحميل ===
 window.onload = function() {
-    // تسجيل Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
         .then(() => console.log('Service Worker Registered'));
@@ -119,22 +124,19 @@ window.onload = function() {
     document.getElementById('loanDate').valueAsDate = new Date();
     
     refreshUI();
-    loadFromFirebase(); // محاولة جلب البيانات الحديثة عند الفتح
+    loadFromFirebase();
 
-    // مراقبة حالة الاتصال
-    window.addEventListener('online', () => { syncToFirebase(); loadFromFirebase(); });
-    window.addEventListener('offline', () => updateConnectionStatus("وضع غير متصل 📡", "secondary"));
+    window.addEventListener('online', () => { updateConnectionStatus("متصل بالإنترنت 🌐", "info"); });
+    window.addEventListener('offline', () => updateConnectionStatus("وضع غير متصل (أوفلاين) 📡", "secondary"));
 };
 
 // === منطق التثبيت (PWA) ===
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // إظهار البانر فقط إذا لم يتم تثبيت التطبيق
     document.getElementById('installBanner').style.display = 'block';
 });
 
-// تعريف الدوال في النافذة (Window) لأننا نستخدم module
 window.installPWA = async () => {
     if (deferredPrompt) {
         deferredPrompt.prompt();
@@ -151,17 +153,16 @@ window.hideInstallBanner = () => {
     document.getElementById('installBanner').style.display = 'none';
 };
 
-// === الدوال الأساسية (تم ربطها بـ window) ===
-
+// === الدوال الأساسية ===
 window.formatMoney = function(amount) {
     return parseFloat(amount).toLocaleString('en-US') + ' د.ع';
 }
 
 function saveData() {
-    localStorage.setItem('workersApp_Mod_v3', JSON.stringify(workers));
+    // يحفظ فقط في الجهاز لضمان عمل التطبيق أوفلاين بسرعة تامة
+    localStorage.setItem('workersApp_Mod_v4', JSON.stringify(workers));
     localStorage.setItem('notesApp_v1', JSON.stringify(notes));
     localStorage.setItem('secretVault_v1', JSON.stringify(secretVault));
-    syncToFirebase(); // حفظ سحابي عند كل تعديل
 }
 
 window.switchTab = function(tabName, navElement) {
@@ -209,49 +210,56 @@ window.addNewWorker = function() {
     document.getElementById('newWorkerWage').value = '';
     alert("تم حفظ العامل ✅");
     updateWorkerSelect();
+    renderMainTable();
 }
 
-// === 2. الرئيسية ===
+// === 2. الرئيسية ومربعات اختيار العمال ===
 window.updateWorkerSelect = function() {
-    const select = document.getElementById('workerAttendanceSelect');
-    select.innerHTML = '<option value="">اختر عاملاً...</option>';
+    const container = document.getElementById('workersCheckboxList');
+    container.innerHTML = '';
     workers.forEach((w, i) => {
-        select.innerHTML += `<option value="${i}">${w.name}</option>`;
+        container.innerHTML += `
+            <div class="form-check text-start d-flex align-items-center mb-2">
+                <input class="form-check-input ms-2 mt-0 worker-checkbox" type="checkbox" value="${i}" id="chkWorker${i}">
+                <label class="form-check-label text-white fw-bold" for="chkWorker${i}">
+                    ${w.name}
+                </label>
+            </div>
+        `;
     });
-}
-
-window.addToTempList = function() {
-    const select = document.getElementById('workerAttendanceSelect');
-    const index = select.value;
-    if(index === "") return;
-    
-    const workerName = workers[index].name;
-    
-    if(!tempAttendanceList.includes(index)) {
-        tempAttendanceList.push(index);
-        const display = document.getElementById('tempWorkersDisplay');
-        display.innerHTML += `<span>${workerName}</span>`;
-    }
-    select.value = "";
 }
 
 window.saveBatchAttendance = function() {
     const date = document.getElementById('attendanceDate').value;
     if(!date) return alert("حدد التاريخ أولاً");
-    if(tempAttendanceList.length === 0) return alert("اختر عمالاً للقائمة");
+    
+    const workType = document.getElementById('workTypeSelect').value;
+    const checkboxes = document.querySelectorAll('.worker-checkbox:checked');
+    
+    if(checkboxes.length === 0) return alert("يرجى تحديد عامل واحد على الأقل من القائمة");
 
-    tempAttendanceList.forEach(index => {
+    checkboxes.forEach(chk => {
+        let index = chk.value;
         let worker = workers[index];
+        let amount = worker.defaultWage || 25000;
+        
+        // إذا كان نصف يوم نخصم نصف الأجرة
+        if (workType === 'نصف يوم') {
+            amount = amount / 2;
+        }
+
         worker.history.push({
             date: date,
             type: 'wage',
-            amount: worker.defaultWage || 25000
+            amount: amount,
+            workType: workType // يوم او نصف يوم
         });
+        
+        // إزالة التحديد بعد الحفظ
+        chk.checked = false;
     });
 
     saveData();
-    tempAttendanceList = [];
-    document.getElementById('tempWorkersDisplay').innerHTML = '';
     alert("تم حفظ الحضور بنجاح ✅");
     renderMainTable();
 }
@@ -264,11 +272,13 @@ window.renderMainTable = function() {
     workers.forEach((worker, index) => {
         let totalWages = 0;
         let daysCount = 0;
+        let lastWorkType = '-'; // لإظهار نوع آخر عمل في الجدول
 
         worker.history.forEach(h => {
             if(h.type === 'wage') {
                 totalWages += h.amount;
                 daysCount++;
+                if(h.workType) lastWorkType = h.workType;
             } 
         });
 
@@ -278,7 +288,9 @@ window.renderMainTable = function() {
         
         tbody.innerHTML += `
             <tr>
+                <td>${index + 1}</td>
                 <td>${worker.name}</td>
+                <td>${lastWorkType}</td>
                 <td>${daysCount} أيام</td>
                 <td class="${colorClass}" style="direction:ltr">${formatMoney(netBalance)}</td>
                 <td><button class="btn btn-sm btn-info text-white" onclick="showWorkDetails(${index})">👁️</button></td>
@@ -311,10 +323,11 @@ window.showWorkDetails = function(index) {
     } else {
         [...workItems].reverse().forEach(d => {
             totalWages += d.amount;
+            let displayType = d.workType ? `(${d.workType})` : '';
             list.innerHTML += `
                 <li class="list-group-item bg-transparent text-white border-light d-flex justify-content-between align-items-center">
                     <div>
-                        <span>📅 ${d.date}</span>
+                        <span>📅 ${d.date} <span class="text-warning">${displayType}</span></span>
                     </div>
                     <div>
                         <span class="text-success ms-2">+ ${formatMoney(d.amount)}</span>
@@ -504,6 +517,7 @@ window.openLoanModal = function(index) {
     document.getElementById('loanWorkerName').innerText = worker.name;
     document.getElementById('loanDate').valueAsDate = new Date();
     document.getElementById('loanAmount').value = '';
+    document.getElementById('loanNote').value = '';
     renderLoanData();
     loanModal.show();
 }
@@ -518,9 +532,10 @@ function renderLoanData() {
     [...loans].reverse().forEach(l => {
         totalLoans += l.amount;
         tbody.innerHTML += `
-            <tr class="text-white">
-                <td>${l.date}</td>
-                <td>${formatMoney(l.amount)}</td>
+            <tr>
+                <td class="text-white">${l.date}</td>
+                <td class="text-white">${l.note || '-'}</td>
+                <td class="text-white">${formatMoney(l.amount)}</td>
             </tr>
         `;
     });
@@ -531,11 +546,14 @@ function renderLoanData() {
 window.saveLoan = function() {
     const amount = parseFloat(document.getElementById('loanAmount').value);
     const date = document.getElementById('loanDate').value;
+    const note = document.getElementById('loanNote').value || '-';
+
     if(!amount || !date) return alert("الرجاء إدخال التاريخ والمبلغ");
 
-    workers[currentLoanWorkerIndex].history.push({ date: date, type: 'loan', amount: amount });
+    workers[currentLoanWorkerIndex].history.push({ date: date, type: 'loan', amount: amount, note: note });
     saveData();
     document.getElementById('loanAmount').value = '';
+    document.getElementById('loanNote').value = '';
     renderLoanData();
 }
 
