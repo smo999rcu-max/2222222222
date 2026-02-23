@@ -48,16 +48,19 @@
             <div class="mb-2">
                 <input type="date" id="attendanceDate" class="form-control glass-input">
             </div>
-            <div class="input-group mb-2">
-                <select id="workerAttendanceSelect" class="form-select glass-select">
-                    <option value="">اختر عاملاً...</option>
+            <div class="mb-2">
+                <label class="text-white-50">نوع العمل:</label>
+                <select id="workTypeSelect" class="form-select glass-select mb-2">
+                    <option value="يوم">يوم كامل</option>
+                    <option value="نصف يوم">نصف يوم</option>
                 </select>
-                <button class="btn btn-warning" onclick="addToTempList()">+ إضافة للقائمة</button>
             </div>
             
-            <div id="tempWorkersDisplay" class="selected-workers-list mb-3"></div>
+            <label class="text-white-50">حدد العمال للحضور:</label>
+            <div id="workersCheckboxList" class="glass-card p-2 mb-3" style="max-height: 200px; overflow-y: auto;">
+                </div>
             
-            <button class="btn btn-success w-100 fw-bold" onclick="saveBatchAttendance()">حفظ الحضور ✅</button>
+            <button class="btn btn-success w-100 fw-bold" onclick="saveBatchAttendance()">حفظ الحضور للعمال المحددين ✅</button>
         </div>
 
         <div class="glass-card p-3 text-center mb-3">
@@ -71,7 +74,9 @@
                 <table class="table table-glass text-center mb-0">
                     <thead>
                         <tr>
+                            <th>ت</th>
                             <th>الاسم</th>
+                            <th>النوع</th>
                             <th>أيام العمل</th>
                             <th>الرصيد الصافي</th>
                             <th>التفاصيل</th>
@@ -144,34 +149,50 @@
         </div>
     </div>
 
+    <div id="tab-sync" class="tab-content">
+        <h3 class="text-center mb-4">🔄 مزامنة البيانات</h3>
+        <div class="glass-card p-4 text-center">
+            <p class="text-white mb-4">اضغط على الزر أدناه لنقل وحفظ جميع تعديلاتك المحلية (أوفلاين) إلى قاعدة البيانات السحابية.</p>
+            <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="manualSync()">مزامنة البيانات ☁️</button>
+            <div id="syncStatusMsg" class="mt-4 fs-5"></div>
+        </div>
+    </div>
+
 </div>
 
 <div class="modal fade" id="loanModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-content-glass">
             <div class="modal-header border-bottom-0">
-                <h5 class="modal-title">💰 إدارة السلف: <span id="loanWorkerName"></span></h5>
+                <h5 class="modal-title text-white">💰 إدارة السلف: <span id="loanWorkerName" class="text-white"></span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
-                <h4 class="mb-2">مجموع السلف</h4>
+                <h4 class="mb-2 text-white">مجموع السلف</h4>
                 <h2 id="totalLoanDisplay" class="text-white fw-bold mb-4">0 د.ع</h2>
                 
                 <hr class="border-light">
                 
-                <h6 class="text-start">إضافة سلفة جديدة:</h6>
-                <input type="date" id="loanDate" class="form-control glass-input mb-2">
-                <input type="number" id="loanAmount" class="form-control glass-input mb-2" placeholder="المبلغ بالدينار العراقي">
+                <h6 class="text-start text-white">إضافة سلفة جديدة:</h6>
+                <input type="date" id="loanDate" class="form-control glass-input mb-2 text-white">
+                <input type="text" id="loanNote" class="form-control glass-input mb-2 text-white" placeholder="ملاحظات (سبب السلفة)">
+                <input type="number" id="loanAmount" class="form-control glass-input mb-2 text-white" placeholder="المبلغ بالدينار العراقي">
                 <button class="btn btn-warning w-100 mb-3 fw-bold" onclick="saveLoan()">حفظ السلفة</button>
                 
                 <div class="table-responsive mb-3" style="max-height: 200px; overflow-y: auto;">
                     <table class="table table-glass table-sm text-center">
-                        <thead><tr><th>التاريخ</th><th>المبلغ</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th class="text-white">التاريخ</th>
+                                <th class="text-white">ملاحظات</th>
+                                <th class="text-white">المبلغ</th>
+                            </tr>
+                        </thead>
                         <tbody id="loanListBody"></tbody>
                     </table>
                 </div>
 
-                <button class="btn btn-outline-danger w-100" onclick="resetLoans()">🔄 تصفير السلف</button>
+                <button class="btn btn-outline-danger w-100 text-white" onclick="resetLoans()">🔄 تصفير السلف</button>
             </div>
         </div>
     </div>
@@ -215,6 +236,10 @@
     <div class="nav-item" onclick="switchTab('add', this)">
         <span class="nav-icon">➕</span>
         <span class="nav-text">إضافة</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('sync', this)">
+        <span class="nav-icon">🔄</span>
+        <span class="nav-text">مزامنة</span>
     </div>
 </nav>
 
