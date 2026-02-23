@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workers-app-v1';
+const CACHE_NAME = 'workers-app-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -8,7 +8,7 @@ const ASSETS_TO_CACHE = [
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js'
 ];
 
-// تثبيت Service Worker وتخزين الملفات
+// تثبيت Service Worker وتخزين الملفات للعمل أوفلاين
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -28,7 +28,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// جلب الملفات: الشبكة أولاً، ثم الكاش (Network First, fallback to Cache)
+// جلب الملفات: الشبكة أولاً، ثم الكاش لتوفير تجربة أوفلاين حقيقية
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
